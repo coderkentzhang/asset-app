@@ -1,0 +1,12 @@
+[
+    {
+        "name": "item_id", 
+        "type": "int256", 
+        "data": "1"
+    }, 
+    {
+        "name": "item_name", 
+        "type": "string", 
+        "data": "apple"
+    }
+]
