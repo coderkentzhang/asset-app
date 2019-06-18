@@ -13,8 +13,10 @@ import org.fisco.bcos.web3j.crypto.CipherException;
 import org.fisco.bcos.web3j.crypto.Credentials;
 import org.fisco.bcos.web3j.crypto.WalletUtils;
 
+import com.alibaba.druid.util.Base64;
 import com.google.common.io.Files;
 
+import io.netty.handler.codec.base64.Base64Encoder;
 import jnr.ffi.Struct.int16_t;
 
 /*create /load / manager accounts 
@@ -31,8 +33,8 @@ public class AccountUtils {
 		{
 			StringBuffer sb = new StringBuffer();
 			sb.append("alias : ").append(alias).append(" ; ");
-			sb.append("address: ").append( credentials.getAddress()).append(" ; ");
-			sb.append("pubkey: " ).append( credentials.getEcKeyPair().getPublicKey().toString(16)).append(" ; ");
+			sb.append("address: ").append( credentials.getAddress()).append("\n");
+			sb.append("pubkey: " ).append( credentials.getEcKeyPair().getPublicKey().toString(16)).append("\n");
 			sb.append("privkey: " ).append( credentials.getEcKeyPair().getPrivateKey().toString(16));
 			return sb.toString();
 		}
@@ -152,7 +154,7 @@ public class AccountUtils {
 		{
 			fp.mkdirs();
 		}
-		
+
 		//create a new walletFile
 		String walletFile = WalletUtils.generateNewWalletFile(password,fp,false);
 		//move to the simple filename,easy to remember
@@ -168,7 +170,23 @@ public class AccountUtils {
 	
 	
 	public static void main(String[] args) throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException, CipherException, IOException {
+		
+		String keyString = "00d9142aa30ff9896267ac85eaa73feb90a56b658835b8a8fb08c4d60fd270e628";
+		System.out.println(keyString);
+	
+		Credentials credentials = Credentials.create(keyString);
+		
+		System.out.println("addr:"+credentials.getAddress());
+		System.out.println("pubkey:"+credentials.getEcKeyPair().getPublicKey().toString(16));
+		System.out.println("privkey:"+credentials.getEcKeyPair().getPrivateKey().toString(16));
+
 		AccountUtils au = new AccountUtils( "d:/blockchain/accounts");
+		AccountEntity ac = au.loadAccount("pyaccount", "123456");
+		if(ac!=null||true)
+		{
+			System.out.println("pyaccount:"+ac.toDetail());
+			System.exit(0);
+		}
 		AccountEntity account;
 		account = au.createAccount("alice", "a123456");
 		account = au.createAccount("bob", "b123456");
@@ -190,9 +208,6 @@ public class AccountUtils {
 		
 		account = au.loadAccount("carl", "c123456");
 		System.out.println(account.toDetail());
-		
-		
-	
 		//account = au.loadAccount("carl", "c1234567");
 		//System.out.println(account.toDetail());
 		System.out.println("\nLOAD all\n");

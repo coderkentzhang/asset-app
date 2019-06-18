@@ -10,9 +10,9 @@ contract ItemWorker
      function create(string n,uint256 b) public returns (int)
      {
 
-	ItemData data =  new ItemData(n,b);
-	item_created(data,n,b);
-	return 0;
+		ItemData data =  new ItemData(n,b);
+		emit item_created(data,n,b);
+		return 0;
 
      }
 

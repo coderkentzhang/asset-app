@@ -6,20 +6,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.commons.io.FileUtils;
 import org.fisco.bcos.asset.client.AssetClient;
 import org.fisco.bcos.asset.contract.Asset;
 import org.fisco.bcos.channel.client.Service;
-import org.fisco.bcos.web3j.crypto.CipherException;
 import org.fisco.bcos.web3j.crypto.Credentials;
 import org.fisco.bcos.web3j.crypto.Keys;
-import org.fisco.bcos.web3j.crypto.WalletUtils;
 import org.fisco.bcos.web3j.protocol.Web3j;
 import org.fisco.bcos.web3j.protocol.channel.ChannelEthereumService;
 import org.fisco.bcos.web3j.protocol.core.RemoteCall;
@@ -39,8 +33,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-
-import com.google.common.io.Files;
 
 public class TestItem {
 	static Logger logger = LoggerFactory.getLogger(TestItem.class);
@@ -66,7 +58,6 @@ public class TestItem {
 	}
 	
 	public ContractHelper contractHelper  = new ContractHelper( "d://tmp//itemworkeraddr.properties" );
-	public static  String credentialsFilePath = "d:/tmp";
 	//
 	public String workerAddress = "";
 	public String workerAddressV2 = "";
@@ -79,16 +70,11 @@ public class TestItem {
 	private static BigInteger gasPrice = new BigInteger("30000000");
 	private static BigInteger gasLimit = new BigInteger("30000000");
 	
-	//input password and a simple filename(alice.json ,etc) to create a new account
-
-	
-	
 	public void initialize() throws Exception {
 
 		// init the Service
 		@SuppressWarnings("resource")
 		ApplicationContext context = new ClassPathXmlApplicationContext("classpath:applicationContext.xml");
-		
 		Service service = context.getBean(Service.class);
 		service.run();
 
@@ -96,14 +82,10 @@ public class TestItem {
 		channelEthereumService.setChannelService(service);
 		Web3j web3j = Web3j.build(channelEthereumService, 1);
 
-			
 		// init Credentials
-		//Credentials credentials = Credentials.create(Keys.createEcKeyPair());
-		Credentials credentials = WalletUtils.loadCredentials("123456", credentialsFilePath+"/alice.json");
+		Credentials credentials = Credentials.create(Keys.createEcKeyPair());
 		setCredentials(credentials);
-		System.out.println("transaction account: "+ credentials.getAddress());
-		System.out.println("transaction pubkey: " + credentials.getEcKeyPair().getPublicKey());
-		System.out.println("transaction privbkey: " + credentials.getEcKeyPair().getPrivateKey());
+		
 		setWeb3j(web3j);
 
 		logger.debug(" web3j is " + web3j + " ,credentials is " + credentials);
@@ -255,15 +237,16 @@ public class TestItem {
 	
     public int testItemTableWorker() throws Exception
     {
-    	String name="abcdefgefege11";//+System.currentTimeMillis();
+    	String name="kkkk1234";//+System.currentTimeMillis();
     	String contractName = "itemtableworker";
+    	String memo = "20190419";
     	ItemTableWorker itw;
     	//if(false)
     	{
 	    	itw = ItemTableWorker.deploy(web3j, credentials, new StaticGasProvider(gasPrice, gasLimit)).send();
 	    	System.out.println("deploy result: " + itw.getContractAddress());
 	    	contractHelper.recordAddr(contractName, itw.getContractAddress());
-	    	TransactionReceipt receipt =  itw.create(name, new BigInteger(String.valueOf(System.currentTimeMillis() %10000)),"szcenter").send();
+	    	TransactionReceipt receipt =  itw.create(name, new BigInteger(String.valueOf(System.currentTimeMillis() %10000)),memo).send();
 	    	List<ItemTableWorker.CreateEventEventResponse> lstEvents = itw.getCreateEventEvents(receipt);
 	    	ItemTableWorker.CreateEventEventResponse response = lstEvents.get(0);
 	    	System.out.println(response.memo);
@@ -277,36 +260,21 @@ public class TestItem {
 	
 	
 	public static void main(String[] args) throws Exception{
-	
-		
 		// TODO Auto-generated method stub
 		TestItem tester= new TestItem();
-		if(args.length >=1&&args[0].compareTo("newaccount")==0)
-		{			
-			AccountUtils au = new AccountUtils(TestItem.credentialsFilePath);
-		   au.createAccount("alice","123456" );
-		  System.out.print("create account done");
-		  //tester.initialize();
-		  return;
-		}
-		
-		
-		
 		tester.initialize();
 		if(args.length >=1)
 		{
 			if(args[0].compareTo("deploy") == 0)
 			{
 				tester.deploy();
-				return ;
 			}
-			
-
+			return ;
 		}
 		if(true)
 		{
 		tester.testItemTableWorker();
-		return ;
+		System.exit(0);
 		}
 		
 		
@@ -321,7 +289,10 @@ public class TestItem {
 		//int rv2 =(int) Math.round( Math.random() * 1000);
 		//tester.createItemV2("btest",new BigInteger(String.valueOf(rv2)));
 		//tester.testV1V2("V1V2test",new BigInteger(String.valueOf(9988)));
-		tester.testV2V3("V2V3test", new BigInteger(String.valueOf(7766)), "shenzhen");
+	
+		tester.testV2V3("V2V3test1223232", new BigInteger(String.valueOf(7766)), "shenzhen");
+		
+		System.exit(0);
 	}
 
 }

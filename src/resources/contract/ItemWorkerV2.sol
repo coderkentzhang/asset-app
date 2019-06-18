@@ -17,11 +17,11 @@ contract ItemWorkerV2
 	}
         if(b > 1000000)
         {
-          itemV2_created(-2,0x0,n,b,"balance too much");
+           emit itemV2_created(-2,0x0,n,b,"balance too much");
 	  return -2;
         }
 	ItemData data =  new ItemData(n,b);
-	itemV2_created(0,data,n,b,"success,remember the address");
+	emit itemV2_created(0,data,n,b,"success,remember the address");
 	return 0;
      }
 

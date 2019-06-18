@@ -1,5 +1,5 @@
 pragma solidity ^0.4.24;
-import "./ItemData.sol";
+
 contract ItemDataV3{
     string name;
     string  city;

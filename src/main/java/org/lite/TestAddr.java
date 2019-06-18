@@ -1,193 +1,286 @@
 package org.lite;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.math.BigInteger;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Properties;
 
-import org.fisco.bcos.web3j.crypto.CipherException;
+import org.fisco.bcos.asset.client.AssetClient;
+import org.fisco.bcos.asset.contract.Asset;
+import org.fisco.bcos.channel.client.Service;
 import org.fisco.bcos.web3j.crypto.Credentials;
+import org.fisco.bcos.web3j.crypto.Keys;
+import org.fisco.bcos.web3j.protocol.Web3j;
+import org.fisco.bcos.web3j.protocol.channel.ChannelEthereumService;
+import org.fisco.bcos.web3j.protocol.core.RemoteCall;
 import org.fisco.bcos.web3j.protocol.core.methods.response.TransactionReceipt;
+import org.fisco.bcos.web3j.tuples.generated.Tuple2;
 import org.fisco.bcos.web3j.tuples.generated.Tuple3;
+import org.fisco.bcos.web3j.tuples.generated.Tuple4;
 import org.fisco.bcos.web3j.tx.gas.StaticGasProvider;
-import org.lite.AccountUtils.AccountEntity;
-import org.lite.AddrTableWorker.PermissionEventEventResponse;
+import org.lite.ItemWorker.Item_createdEventResponse;
+import org.lite.ItemWorkerV2.ItemV2_createdEventResponse;
+import org.lite.ItemWorkerV3.ItemV3_createdEventResponse;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.lite.ItemWorkerV3.ItemV3_migratedEventResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 
 public class TestAddr {
+	static Logger logger = LoggerFactory.getLogger(TestAddr.class);
 
-	AccountUtils au = new AccountUtils("d:/blockchain/accounts");
-	Web3client client = new Web3client();
-	AccountEntity alice ,bob,carl,kent;
-	
-	public void loadAcccounts() throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException, CipherException, IOException
-	{
-		alice = au.createAccount("alice","a123456");
-		System.out.println(alice.toDetail());
-		bob = au.createAccount("bob","b123456");
-		System.out.println(bob.toDetail());
-		carl = au.createAccount("carl","c123456");
-		System.out.println(carl.toDetail());
-		kent = au.createAccount("kent","k123456");
-		System.out.println(kent.toDetail());
-	
+	private Web3j web3j;
+
+	private Credentials credentials;
+
+	public Web3j getWeb3j() {
+		return web3j;
 	}
-	ContractHelper contractHelper = new ContractHelper("d:/blockchain/contracts.txt");
-	public void testDeploy() throws Exception
-	{
+
+	public void setWeb3j(Web3j web3j) {
+		this.web3j = web3j;
+	}
+
+	public Credentials getCredentials() {
+		return credentials;
+	}
+
+	public void setCredentials(Credentials credentials) {
+		this.credentials = credentials;
+	}
+	
+	public ContractHelper contractHelper  = new ContractHelper( "d://tmp//itemworkeraddr.properties" );
+	//
+	public String workerAddress = "";
+	public String workerAddressV2 = "";
+	public String workerAddressV3 ="";
+	
+	public ItemWorker   itemworker = null;
+	public ItemWorkerV2 itemworkerV2 = null;
+	public ItemWorkerV3 itemworkerV3 = null;
+	
+	private static BigInteger gasPrice = new BigInteger("30000000");
+	private static BigInteger gasLimit = new BigInteger("30000000");
+	
+	public void initialize() throws Exception {
+
+		// init the Service
+		@SuppressWarnings("resource")
+		ApplicationContext context = new ClassPathXmlApplicationContext("classpath:applicationContext.xml");
+		Service service = context.getBean(Service.class);
+		service.run();
+
+		ChannelEthereumService channelEthereumService = new ChannelEthereumService();
+		channelEthereumService.setChannelService(service);
+		Web3j web3j = Web3j.build(channelEthereumService, 1);
+
+		// init Credentials
+		Credentials credentials = Credentials.create(Keys.createEcKeyPair());
+		setCredentials(credentials);
 		
-		AccountEntity ae = null;
-		AddrTableWorker worker = null;
-		ae = alice;
+		setWeb3j(web3j);
+
+		logger.debug(" web3j is " + web3j + " ,credentials is " + credentials);
+	}
+	
+	public void  loadWorker() throws Exception
+	{
+		this.workerAddress = contractHelper.loadAddr("worker");
+		System.out.println("load worker on adddress : "+workerAddress);
+		itemworker = ItemWorker.load(workerAddress, web3j, credentials, new StaticGasProvider(gasPrice, gasLimit));
+		System.out.println("load worker on adddress ,result: "+itemworker.getContractAddress());
+	}
+	
+	public void  loadWorkerV2() throws Exception
+	{
+		this.workerAddressV2 = contractHelper.loadAddr("workerV2");
+		System.out.println("load workerV2 on adddress : "+workerAddressV2);
+		itemworkerV2 = ItemWorkerV2.load(workerAddressV2, web3j, credentials, new StaticGasProvider(gasPrice, gasLimit));
+		System.out.println("load workerV2 on adddress ,result: "+itemworkerV2.getContractAddress());
+	}
+	
+	public void  loadWorkerV3() throws Exception
+	{
+		this.workerAddressV3 = contractHelper.loadAddr("workerV3");
+		System.out.println("load workerV3 on adddress : "+workerAddressV3);
+		itemworkerV3 = ItemWorkerV3.load(workerAddressV3, web3j, credentials, new StaticGasProvider(gasPrice, gasLimit));
+		System.out.println("load workerV3 on adddress ,result: "+itemworkerV3.getContractAddress());
+	}
+	
+	
+	public void deploy() {
+
 		try {
-
-			worker = AddrTableWorker.deploy(client.getWeb3j(), ae.credentials, client.getGasProvider()).send();
-			System.out.println(ae.alias + "  deploy:" + worker.getContractAddress());
-			contractHelper.recordAddr("AddrTableWorker", worker.getContractAddress());
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-	
-	public void testUserTablePermission() throws Exception
-	{
-		System.out.println("\n---now test user table permission");
-		AccountEntity ae = null;
-		AddrTableWorker worker = null;
-		String workerAddress = contractHelper.loadAddr("AddrTableWorker");
-		System.out.println ("contract address: "+workerAddress);
-		AddrTableWorker workerForAlice = AddrTableWorker.load(workerAddress, client.getWeb3j(), alice.credentials, client.getGasProvider());
-		AddrTableWorker workerForBob = AddrTableWorker.load(workerAddress, client.getWeb3j(), bob.credentials, client.getGasProvider());
-		String name = "";
-		BigInteger balance = new BigInteger(String.valueOf(776688));
-		String city = "shenzhen";
-		
-		try
-		{
-			System.out.println("\n---------alice check permission");
-			TransactionReceipt receipt = workerForAlice.dectectAddr().send();
+			ItemWorker itemworker = ItemWorker.deploy(web3j, credentials, new StaticGasProvider(gasPrice, gasLimit)).send();
+			System.out.println(" deploy V1 success, contract address is " + itemworker.getContractAddress());
+			this.workerAddress = itemworker.getContractAddress();
+			contractHelper.recordAddr("worker",itemworker.getContractAddress());
 			
-			List<PermissionEventEventResponse> lstEvents = workerForAlice.getPermissionEventEvents(receipt);
-	    	System.out.println(receipt.getOutput());
-			PermissionEventEventResponse response = lstEvents.get(0);
-			System.out.println("retcode : " + response.ret+",sender: "+response.sender+",origin: "+response.orgin+",memo: "+response.memo);
-		}catch(Exception e)
-		{
-			e.printStackTrace();
-		}
-
-		try
-		{
-			System.out.println("\n---------bob check permission");
-			TransactionReceipt receipt = workerForBob.dectectAddr().send();
-			List<PermissionEventEventResponse> lstEvents = workerForBob.getPermissionEventEvents(receipt);
-			PermissionEventEventResponse response = lstEvents.get(0);
-			System.out.println("retcode : " + response.ret+",sender: "+response.sender+",origin: "+response.orgin+",memo: "+response.memo);
-			return ;
-		}catch(Exception e)
-		{
-			e.printStackTrace();
-		}
-
-		
-		try
-		{
-			name = "alice996";
-			System.out.println("\n---------alice create item");
-			TransactionReceipt receipt =  workerForAlice.create(name, balance, city).send();
-	    	List<AddrTableWorker.CreateEventEventResponse> lstEvents = workerForAlice.getCreateEventEvents(receipt);
-	    	AddrTableWorker.CreateEventEventResponse response = lstEvents.get(0);
-	
-	    	System.out.println("transaction orgin:"+alice.credentials.getAddress());
-	    	System.out.println(response.name+";"+response.city+";"+response.memo);
-	    	Tuple3<BigInteger, BigInteger, String> resTuple3 = workerForAlice.select(name).send();
-	    	System.out.println(resTuple3);
-		}catch(Exception e)
-		{
-			e.printStackTrace();
-		}
-		try {
-			name ="bob007";
-			System.out.println("\n---------bob create item");
-			TransactionReceipt receipt = workerForBob.create(name, balance, city).send();
-	    	List<AddrTableWorker.CreateEventEventResponse> lstEvents = workerForBob.getCreateEventEvents(receipt);
-	    	AddrTableWorker.CreateEventEventResponse response = lstEvents.get(0);
-	    	System.out.println("transaction orgin:"+bob.credentials.getAddress());
-	    	System.out.println(response.name+";"+response.city+";"+response.memo);
-	    	Tuple3<BigInteger, BigInteger, String> resTuple3 = workerForAlice.select(name).send();
-	    	System.out.println(resTuple3);
-		}catch(Exception e)
-		{
-			e.printStackTrace();
+			ItemWorkerV2 itemworkerV2 = ItemWorkerV2.deploy(web3j, credentials, new StaticGasProvider(gasPrice, gasLimit)).send();
+			System.out.println(" deploy V2 success, contract address is " + itemworkerV2.getContractAddress());
+			this.workerAddressV2 = itemworkerV2.getContractAddress();
+			contractHelper.recordAddr("workerV2",itemworkerV2.getContractAddress());
+			
+			
+			ItemWorkerV3 itemworkerV3 = ItemWorkerV3.deploy(web3j, credentials, new StaticGasProvider(gasPrice, gasLimit)).send();
+			System.out.println(" deploy V3 success, contract address is " + itemworkerV3.getContractAddress());
+			this.workerAddressV3 = itemworkerV2.getContractAddress();
+			contractHelper.recordAddr("workerV3",itemworkerV3.getContractAddress());			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			// e.printStackTrace();
+			System.out.println(" deploy ItemWorkers contract failed, error message is  " + e.getMessage());
 		}
 	}
-	public static  String loadJson(String filename) throws IOException
+	
+	public int  createItem(String name,BigInteger balance) throws Exception
 	{
-	     File f = new File(filename);
-	     InputStreamReader reader = new InputStreamReader(  
-                new FileInputStream(f)); // 建立一个输入流对象reader  
-        BufferedReader br = new BufferedReader(reader); // 建立一个对象，它把文件内容转成计算机能读懂的语言  
-        String line = "";  
-        line = br.readLine();  
-        StringBuffer sb = new StringBuffer();
-        
-        while (line != null) {
-       	 sb.append(line).append("\n");
-            line = br.readLine(); // 一次读入一行数据  
-        }  
-        
-        return sb.toString();
+		System.out.println("---------->testing V1");
+		TransactionReceipt receipt = itemworker.create(name,balance).send();
+		List<Item_createdEventResponse> lstEvents = itemworker.getItem_createdEvents(receipt);
+		
+		Item_createdEventResponse response = lstEvents.get(0);
+		System.out.println("-----------Receipt event start-----------------");
+		System.out.println("address :"+response.itemAddr);
+		System.out.println("name    :"+response.name);
+		System.out.println("balance :"+response.balance.intValue());
+		System.out.println("-----------Receipt event end-----------------");
+		Tuple2<String, BigInteger> itemdata = itemworker.get_item(response.itemAddr).send();
+		System.out.println(itemdata);
+		return 0;
 	}
-	public static void jsonTest() throws JsonParseException, JsonMappingException, IOException
+	
+	
+	public int  createItemV2(String name,BigInteger balance) throws Exception
 	{
-		String jsonstr = "[ {\"type\": \"int256\", \"data\": \"99\"},{\"type\": \"string\",\"data\": \"success\"}]";
 		
-		ContractDecoderEntity cde =  new ContractDecoderEntity(jsonstr);
-		System.out.println(cde.listToString());
+		System.out.println("---------->testing V2");
+		TransactionReceipt receipt = itemworkerV2.create(name,balance).send();
+		List<ItemWorkerV2.ItemV2_createdEventResponse> lstEvents = itemworkerV2.getItemV2_createdEvents(receipt);
 		
-		
-		jsonstr = loadJson("d:/blockchain/jsontest.json");
-		cde =  new ContractDecoderEntity(jsonstr);
-		System.out.println(cde.listToString());
-		System.out.println(cde.entity_list.get(0).dataAsInt()); 
-         
-	   
+		ItemWorkerV2.ItemV2_createdEventResponse response = lstEvents.get(0);
+		System.out.println("-----------Receipt event start-----------------");
+		System.out.println("retcode :"+response.retcode);
+		System.out.println("address :"+response.itemAddr);
+		System.out.println("name    :"+response.name);
+		System.out.println("balance :"+response.balance.intValue());
+		System.out.println("memo    :"+response.memo);
+		System.out.println("-----------Receipt event end-----------------");
+		if(response.retcode.intValue() == 0)
+		{
+			Tuple2<String, BigInteger> itemdata = itemworkerV2.get_item(response.itemAddr).send();
+			if(itemdata!=null)
+			{
+				System.out.println(itemdata);
+			}
+			else {
+				
+				System.out.println("no item by name:"+name);
+			}
+		}else {
+			System.out.println("create item error,go to end");
+		}
+		return 0;
 	}
 	
 	
-	public static void main(String[] args) throws Exception {
+	public int testV1V2(String name,BigInteger balance) throws Exception
+	{
+		TransactionReceipt receipt = itemworker.create(name,balance).send();
+		List<Item_createdEventResponse> lstEvents = itemworker.getItem_createdEvents(receipt);
+		Item_createdEventResponse response = lstEvents.get(0);
+		System.out.println("after V1 create,new item address :"+response.itemAddr);
+		System.out.println("item name: " +response.name+",balance: "+response.balance);
+		
+		//try get item by V2
+		itemworkerV2.get_item(response.itemAddr);
+		Tuple2<String, BigInteger> itemdata = itemworkerV2.get_item(response.itemAddr).send();
+		if(itemdata!=null)
+		{
+			System.out.println("get the item by V2:"+itemdata);
+		}
+		
+		return 0;
+	}
+	
+	
+	public int testV2V3(String name,BigInteger balance,String city) throws Exception
+	{
+		
+		//create a ItemData V2
+		TransactionReceipt receipt = itemworkerV2.create(name,balance).send();
+		List<ItemV2_createdEventResponse> lstEvents = itemworkerV2.getItemV2_createdEvents(receipt);
+		ItemV2_createdEventResponse response = lstEvents.get(0);
+		System.out.println("after V2 create,new item address :"+response.itemAddr);
+		System.out.println("item name: " +response.name+",balance: "+response.balance);
+		
+		//try migrate V2 to V3
+		System.out.println("migrate from address: "+response.itemAddr);
+		receipt = this.itemworkerV3.create_byitemV1(response.itemAddr,city).send();
+		List<ItemV3_migratedEventResponse> lstEventsV3 = itemworkerV3.getItemV3_migratedEvents(receipt);
+		ItemV3_migratedEventResponse responseV3 = lstEventsV3.get(0);
+		System.out.println("after migrate to V3: " +" new itemaddr: "+responseV3.addressV3+",memo: "+response.memo);
+		System.out.println("from V2 Address:" +responseV3.addressV1);
+		
+		Tuple4<String, BigInteger, String, String> itemdataV3 =  itemworkerV3.get_item(responseV3.addressV3).send();
+		System.out.println("migrate result itemV3 = "+itemdataV3);
+		return 0;
+	}	
+	
+    public int testAddrTableWorker() throws Exception
+    {
+    	String name="aaaabbbaaaa";//+System.currentTimeMillis();
+    	String contractName = "AddrTableWorker";
+    	String addr = "0x9ef63d16cb40b82a6dd1562f884d0cfbdbe57a2c";
+    	AddrTableWorker itw;
+    	
+    	//if(false)
+    	{
+	    	itw = AddrTableWorker.deploy(web3j, credentials, new StaticGasProvider(gasPrice, gasLimit)).send();
+	    	System.out.println("deploy result: " + itw.getContractAddress());
+	    	contractHelper.recordAddr(contractName, itw.getContractAddress());
+	    	TransactionReceipt receipt =  itw.create(name, new BigInteger(String.valueOf("76543")),addr).send();
+	    	List<AddrTableWorker.CreateEventEventResponse> lstEvents = itw.getCreateEventEvents(receipt);
+	    	AddrTableWorker.CreateEventEventResponse response = lstEvents.get(0);
+	    	System.out.println(response.ret.toString());
+	    	System.out.println(response.city);
+	    	System.out.println(response.memo);
+    	}
+    	itw = AddrTableWorker.load( contractHelper.loadAddr(contractName),web3j, credentials,  new StaticGasProvider(gasPrice, gasLimit));
+    	Tuple3<BigInteger, BigInteger, String> item = itw.select(name).send();
+    	System.out.println(name+","+item);
+    	System.out.println(new String(item.getValue3()));
+    	return 0;
+    }
+	
+	
+	public static void main(String[] args) throws Exception{
 		// TODO Auto-generated method stub
+		TestAddr tester= new TestAddr();
+		tester.initialize();
+		if(args.length >=1)
+		{
+			if(args[0].compareTo("deploy") == 0)
+			{
+				tester.deploy();
+			}
+			return ;
+		}
 		if(true)
 		{
-			jsonTest();
-			return;
-		}
-		try
-		{
-			TestAddr pt = new TestAddr();
-			pt.client.initialize(1);
-			pt.loadAcccounts();
-			pt.testDeploy();
-			pt.testUserTablePermission();
-			
-		}catch(Exception e)
-		{
-			e.printStackTrace();
-		}
+		tester.testAddrTableWorker();
 		System.exit(0);
+		}
+		
+	
 	}
 
 }
